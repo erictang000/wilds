@@ -137,7 +137,7 @@ class SingleModelAlgorithm(GroupAlgorithm):
 
         # process this batch
         results = self.process_batch(batch, unlabeled_batch)
-
+        
         # update running statistics and update model if we've reached end of effective batch
         self._update(
             results,

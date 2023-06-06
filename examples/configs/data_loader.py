@@ -1,6 +1,6 @@
 loader_defaults = {
     'loader_kwargs': {
-        'num_workers': 4,
+        'num_workers': 5,
         'pin_memory': True,
     },
     'unlabeled_loader_kwargs': {

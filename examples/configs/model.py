@@ -50,6 +50,7 @@ model_defaults = {
         },
         'target_resolution': (224, 224),
     },
+    'vision_transformer': {},
     'gin-virtual': {},
     'resnet18_ms': {
         'target_resolution': (224, 224),

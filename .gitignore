@@ -1,4 +1,7 @@
 __pycache__
+checkpoints
+wandb
+*.out
 .idea
 build
 data

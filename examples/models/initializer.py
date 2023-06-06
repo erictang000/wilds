@@ -103,7 +103,74 @@ def initialize_model(config, d_out, is_featurizer=False):
         else:
             model = initialize_fasterrcnn_model(config, d_out)
         model.needs_y = True
+    
+    elif config.model == "vision_transformer":
+        import models.vision_transformer as vision_transformer
+        import models.beit_vision_transformer as beit_vision_transformer
+        model = vision_transformer.vit_base(num_classes=d_out)
+        if "dino" in config.vit_pretraining:
+            if "torch_hub" in config.vit_pretraining:
+                name = config.vit_pretraining[10:]
+                model = torch.hub.load('facebookresearch/dino:main', name)
+                model.head = nn.Linear(model.norm.weight.shape[0], d_out)
+            else:
+                state_dict = torch.load(config.vit_pretraining)
+                backbone_state_dict = {}
+                for key, value in state_dict["student"].items():
+                    if key.startswith('module.backbone.'):
+                        new_key = key[16:]  # Remove 'module.' prefix
+                        backbone_state_dict[new_key] = value
+                    else:
+                        backbone_state_dict[key] = value
+                model.load_state_dict(backbone_state_dict, strict=False)
+        elif "mae" in config.vit_pretraining:
+            if "vit_large" in config.vit_pretraining:
+                model = vision_transformer.vit_large(num_classes=d_out)
+            state_dict = torch.load(config.vit_pretraining)
+            model.load_state_dict(state_dict["model"], strict=False)
+        elif "moco" in config.vit_pretraining:
+            state_dict = torch.load(config.vit_pretraining)
+            backbone_state_dict = {}
+            for key, value in state_dict["state_dict"].items():
+                if key.startswith('module.base_encoder.'):
+                    new_key = key[20:]  # Remove 'module.' prefix
+                    backbone_state_dict[new_key] = value
+                else:
+                    backbone_state_dict[key] = value
+            model.load_state_dict(backbone_state_dict, strict=False) 
+        elif "beit" in config.vit_pretraining:
+            if "base" in config.vit_pretraining:
+                model = beit_vision_transformer.beit_base_patch16_224(num_classes=1000, 
+                                                                      use_abs_pos_emb=False, use_shared_rel_pos_bias=True, 
+                                                                      qkv_bias=True, init_values=1)
+            elif "large" in config.vit_pretraining:
+                model = beit_vision_transformer.beit_large_patch16_224(num_classes=1000, 
+                                                                      use_abs_pos_emb=False, use_shared_rel_pos_bias=True, 
+                                                                      qkv_bias=True, init_values=1)
+            state_dict = torch.load(config.vit_pretraining)
+            state_dict["model"]["fc_norm.weight"] = state_dict["model"]["norm.weight"]
+            state_dict["model"]["fc_norm.bias"] = state_dict["model"]["norm.bias"]
+            model.load_state_dict(state_dict["model"], strict=False)
+            model.head = torch.nn.Linear(model.head.in_features, d_out)
+        elif "simmim" in config.vit_pretraining:
+            import models.simmim as simmim
 
+            model = simmim.vit_base()
+            model.load_state_dict(
+                simmim.load_state_dict(
+                    config.vit_pretraining,
+                ),
+                strict=False
+            )
+            model.head = torch.nn.Linear(model.head.in_features, d_out)
+
+
+        if config.freeze_vit:
+            for name, param in model.named_parameters():
+                if name != "head.weight" and name != "head.bias":
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
     else:
         raise ValueError(f'Model: {config.model} not recognized.')
 
